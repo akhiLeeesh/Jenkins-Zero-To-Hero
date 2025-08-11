@@ -1,21 +1,38 @@
 pipeline {
-  agent none
-  stages {
-    stage('Back-end') {
-      agent {
-        docker { image 'maven:3.8.1-adoptopenjdk-11' }
-      }
-      steps {
-        sh 'mvn --version'
-      }
+    agent none
+
+    stages {
+        stage('Back-end') {
+            agent {
+                docker { image 'maven:3.8.1-adoptopenjdk-11' }
+            }
+            steps {
+                sh 'mvn --version'
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('Front-end') {
+            agent {
+                docker { image 'node:16-alpine' }
+            }
+            steps {
+                sh 'node --version'
+                sh 'npm install'
+                sh 'npm run build'
+            }
+        }
+
+        stage('Deploy to EC2') {
+            agent any
+            steps {
+                sshagent(['ec2-ssh-key']) {
+                    sh """
+                        scp -o StrictHostKeyChecking=no -r ./dist/* ubuntu@ec2-13-201-222-161.ap-south-1.compute.amazonaws.com:/var/www/html
+                        ssh -o StrictHostKeyChecking=no ubuntu@ec2-13-201-222-161.ap-south-1.compute.amazonaws.com 'sudo systemctl restart nginx'
+                    """
+                }
+            }
+        }
     }
-    stage('Front-end') {
-      agent {
-        docker { image 'node:16-alpine' }
-      }
-      steps {
-        sh 'node --version'
-      }
-    }
-  }
 }
